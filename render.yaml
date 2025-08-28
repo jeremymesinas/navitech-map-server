@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: yolo-seg
+    runtime: python
+    plan: standard
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MODEL_PATH
+        value: app/data/model/yolov11_instance_trained.pt
+      - key: ALLOW_ORIGINS
+        value: http://localhost:3000,https://your-next-domain.com
+      # - key: MODEL_URL
+      #   sync: false   # set in dashboard or add a value here
+    disk:
+      name: model-disk
+      mountPath: /data/model
+      sizeGB: 10
