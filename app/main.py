@@ -8,7 +8,17 @@ from ultralytics import YOLO
 import urllib.request
 import pathlib
 
-MODEL_URL = os.getenv("MODEL_URL")  # put a signed/public URL here
+MODEL_URL = os.getenv("MODEL_PATH", "app/data/model/yolov11_instance_trained.pt")  # put a signed/public URL here
+
+# def ensure_model_on_disk(path: str):
+#     p = pathlib.Path(path)
+#     p.parent.mkdir(parents=True, exist_ok=True)
+#     if p.exists():
+#         return
+#     if not MODEL_URL:
+#         raise RuntimeError("MODEL_URL not set and model file missing.")
+#     print(f"Downloading model from {MODEL_URL} to {p} ...")
+#     urllib.request.urlretrieve(MODEL_URL, p)  # simple, blocking
 
 def ensure_model_on_disk(path: str):
     p = pathlib.Path(path)
@@ -17,8 +27,13 @@ def ensure_model_on_disk(path: str):
         return
     if not MODEL_URL:
         raise RuntimeError("MODEL_URL not set and model file missing.")
-    print(f"Downloading model from {MODEL_URL} to {p} ...")
-    urllib.request.urlretrieve(MODEL_URL, p)  # simple, blocking
+    if MODEL_URL.startswith("http://") or MODEL_URL.startswith("https://"):
+        print(f"Downloading model from {MODEL_URL} to {p} ...")
+        urllib.request.urlretrieve(MODEL_URL, p)
+    else:
+        # Assume it's a local file path, try to copy
+        print(f"Copying model from {MODEL_URL} to {p} ...")
+        shutil.copy(MODEL_URL, p)
 
 
 app = FastAPI(title="YOLOv11 Segmentation API")
