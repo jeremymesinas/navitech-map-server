@@ -2,7 +2,8 @@ import cv2 as cv
 import numpy as np
 from typing import Optional
 from ultralytics import YOLO
-from svg_utils import contours_to_svg  # we'll add this
+from app.svg_utils import contours_to_svg
+
 
 def process_yolo_to_svg(image_path: str, model: Optional[YOLO]) -> str:
     if model is None:
