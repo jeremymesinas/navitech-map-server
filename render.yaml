@@ -8,6 +8,9 @@ services:
     envVars:
       - key: MODEL_PATH
         value: app/data/model/yolov11_instance_trained.pt
+      - key: MODEL_PATH
+        value: /opt/render/project/src/app/data/model/yolov11_instance_trained.pt # absolute safe path
+
       - key: ALLOW_ORIGINS
         value: http://localhost:3000,https://your-next-domain.com
     disk:

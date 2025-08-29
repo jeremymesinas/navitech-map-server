@@ -1,44 +1,54 @@
 import os
 import shutil
 import tempfile
+import pathlib
+import urllib.request
+
 from fastapi import FastAPI, File, UploadFile, Response
 from fastapi.middleware.cors import CORSMiddleware
-from app.yolo_process import process_yolo_to_svg
 from ultralytics import YOLO
-import urllib.request
-import pathlib
 
-MODEL_URL = os.getenv("MODEL_PATH", "app/data/model/yolov11_instance_trained.pt")  # put a signed/public URL here
+from app.yolo_process import process_yolo_to_svg
 
-# def ensure_model_on_disk(path: str):
-#     p = pathlib.Path(path)
-#     p.parent.mkdir(parents=True, exist_ok=True)
-#     if p.exists():
-#         return
-#     if not MODEL_URL:
-#         raise RuntimeError("MODEL_URL not set and model file missing.")
-#     print(f"Downloading model from {MODEL_URL} to {p} ...")
-#     urllib.request.urlretrieve(MODEL_URL, p)  # simple, blocking
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+MODEL_SOURCE = os.getenv(
+    "MODEL_SOURCE", "app/data/model/yolov11_instance_trained.pt"
+)  # local path in repo or public URL
+MODEL_PATH = os.getenv(
+    "MODEL_PATH", "/opt/render/project/src/app/data/model/yolov11_instance_trained.pt"
+)  # final location where model is stored
 
-def ensure_model_on_disk(path: str):
-    p = pathlib.Path(path)
+# -----------------------------------------------------------------------------
+# Utilities
+# -----------------------------------------------------------------------------
+def ensure_model_on_disk(dest_path: str):
+    """Make sure the YOLO model file exists at dest_path."""
+    p = pathlib.Path(dest_path)
     p.parent.mkdir(parents=True, exist_ok=True)
+
     if p.exists():
+        print(f"Model already present at {p}")
         return
-    if not MODEL_URL:
-        raise RuntimeError("MODEL_URL not set and model file missing.")
-    if MODEL_URL.startswith("http://") or MODEL_URL.startswith("https://"):
-        print(f"Downloading model from {MODEL_URL} to {p} ...")
-        urllib.request.urlretrieve(MODEL_URL, p)
+
+    if MODEL_SOURCE.startswith(("http://", "https://")):
+        print(f"Downloading model from {MODEL_SOURCE} to {p} ...")
+        urllib.request.urlretrieve(MODEL_SOURCE, p)
     else:
-        # Assume it's a local file path, try to copy
-        print(f"Copying model from {MODEL_URL} to {p} ...")
-        shutil.copy(MODEL_URL, p)
+        print(f"Copying model from {MODEL_SOURCE} to {p} ...")
+        shutil.copy(MODEL_SOURCE, p)
 
-
+# -----------------------------------------------------------------------------
+# FastAPI App
+# -----------------------------------------------------------------------------
 app = FastAPI(title="YOLOv11 Segmentation API")
 
-allow_origins = [o.strip() for o in os.getenv("ALLOW_ORIGINS", "http://localhost:3000").split(",")]
+# Configure CORS
+allow_origins = [
+    o.strip()
+    for o in os.getenv("ALLOW_ORIGINS", "http://localhost:3000").split(",")
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
@@ -47,24 +57,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MODEL_PATH = os.getenv("MODEL_PATH", "/data/model/yolov11_instance_trained.pt")
+# Global YOLO model object
 model: YOLO | None = None
 
 @app.on_event("startup")
 def _load_model():
     global model
-    ensure_model_on_disk(MODEL_PATH)   # <--- add this
+    ensure_model_on_disk(MODEL_PATH)
     model = YOLO(MODEL_PATH)
-    # model.to("cpu")
+    # model.to("cpu")  # Uncomment if forcing CPU
 
-
+# -----------------------------------------------------------------------------
+# Routes
+# -----------------------------------------------------------------------------
 @app.get("/health")
 def health():
     return {"ok": True}
 
 @app.post("/segment-svg")
 async def segment_svg(file: UploadFile = File(...)):
-    # Save to a temp file to hand to OpenCV/YOLO
+    """Accepts an uploaded image and returns YOLO segmentation as an SVG."""
     suffix = os.path.splitext(file.filename)[1] or ".png"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         shutil.copyfileobj(file.file, tmp)
