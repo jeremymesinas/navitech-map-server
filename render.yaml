@@ -4,7 +4,7 @@ services:
     env: python # Changed from "runtime" to "env"
     plan: standard
     buildCommand: pip install --use-pep517 --prefer-binary -r requirements.txt # Added flags
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000
     envVars:
       - key: MODEL_PATH
         value: app/data/model/yolov11_instance_trained.pt
